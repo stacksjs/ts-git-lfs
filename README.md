@@ -175,6 +175,3 @@ Made with 💙
 [npm-version-href]: https://npmjs.com/package/ts-git-lfs
 [github-actions-src]: https://img.shields.io/github/actions/workflow/status/stacksjs/ts-git-lfs/ci.yml?style=flat-square&branch=main
 [github-actions-href]: https://github.com/stacksjs/ts-git-lfs/actions?query=workflow%3Aci
-
-<!-- [codecov-src]: https://img.shields.io/codecov/c/gh/stacksjs/ts-git-lfs/main?style=flat-square
-[codecov-href]: https://codecov.io/gh/stacksjs/ts-git-lfs -->
