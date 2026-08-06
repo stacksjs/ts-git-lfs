@@ -1,7 +1,7 @@
 {
   "name": "ts-git-lfs",
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Git Large File Storage for TypeScript: pointer files, the batch API, and object storage.",
   "author": "Chris Breuer <chris@stacksjs.org>",
   "license": "MIT",
