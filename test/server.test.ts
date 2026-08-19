@@ -243,3 +243,100 @@ describe('the surface as a whole', () => {
     expect((await handleRequest(post('/objects/batch', { operation: 'upload', objects: [] }), bare))!.status).toBe(403)
   })
 })
+
+describe('a store that is not a filesystem', () => {
+  /**
+   * The substitution this package could not previously support.
+   *
+   * Every route went through the store interface except the download, which
+   * opened `pathFor(oid)` itself - so a host keeping objects in a bucket, or
+   * behind its own storage abstraction, satisfied every other route and 404'd
+   * on the bytes. A store with no `pathFor` at all is the honest test of that.
+   */
+  function memoryStore() {
+    const held = new Map<string, Uint8Array>()
+
+    return {
+      held,
+      async lookup(oid: string) {
+        const bytes = held.get(oid)
+
+        return bytes ? { oid: oid as any, size: bytes.byteLength } : null
+      },
+      async has(oid: string) {
+        return held.has(oid)
+      },
+      async read(oid: string) {
+        return held.get(oid) ?? null
+      },
+      stream(oid: string) {
+        const bytes = held.get(oid)
+
+        if (!bytes)
+          return null
+
+        return new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(bytes)
+            controller.close()
+          },
+        })
+      },
+      async write(bytes: Uint8Array, expected: { oid: string, size?: number }) {
+        held.set(expected.oid, bytes)
+
+        return { ok: true, oid: expected.oid as any, size: bytes.byteLength }
+      },
+      async remove(oid: string) {
+        return held.delete(oid)
+      },
+    }
+  }
+
+  it('serves the bytes it holds, with no path anywhere', async () => {
+    const objects = memoryStore()
+    const bytes = new TextEncoder().encode('bytes that live in no file')
+    const oid = await hashObject(bytes)
+    await objects.write(bytes, { oid })
+
+    const answer = await handleRequest(
+      new Request(`${ENDPOINT}/objects/${oid}`),
+      { ...options, objects },
+    )
+
+    expect(answer.status).toBe(200)
+    expect(await answer.text()).toBe('bytes that live in no file')
+  })
+
+  it('still 404s for an object it does not hold', async () => {
+    const objects = memoryStore()
+    const oid = await hashObject(new TextEncoder().encode('never stored'))
+
+    const answer = await handleRequest(
+      new Request(`${ENDPOINT}/objects/${oid}`),
+      { ...options, objects },
+    )
+
+    expect(answer.status).toBe(404)
+  })
+
+  it('takes an upload and serves it back', async () => {
+    const objects = memoryStore()
+    const bytes = new TextEncoder().encode('uploaded to memory')
+    const oid = await hashObject(bytes)
+
+    const uploaded = await handleRequest(
+      new Request(`${ENDPOINT}/objects/${oid}`, { method: 'PUT', body: bytes }),
+      { ...options, objects },
+    )
+
+    expect(uploaded.status).toBe(200)
+
+    const served = await handleRequest(
+      new Request(`${ENDPOINT}/objects/${oid}`),
+      { ...options, objects },
+    )
+
+    expect(await served.text()).toBe('uploaded to memory')
+  })
+})

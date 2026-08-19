@@ -36,6 +36,36 @@ export interface WriteResult {
 }
 
 /**
+ * What the server needs of a store, and nothing more.
+ *
+ * `ObjectStore` below is the one this package ships and the one almost every
+ * host wants. This interface exists for the hosts that cannot use it: a forge
+ * keeping objects in S3, or behind its own storage abstraction, has all of
+ * these operations and no local path to offer.
+ *
+ * `stream` is what the download route uses. It may answer null when the store
+ * would rather the caller read the bytes another way; `read` is the fallback.
+ * A store that has neither cannot serve objects, which is a programming error
+ * rather than a runtime state.
+ */
+export interface ObjectStoreLike {
+  /**
+   * The local path an object has, when it has one.
+   *
+   * Optional, and only meaningful for a store backed by a filesystem. Nothing
+   * in this package requires it - it used to, which is precisely why a remote
+   * store could not be substituted.
+   */
+  pathFor?: (oid: Oid) => string
+  lookup: (oid: string) => Promise<StoredObject | null>
+  has: (oid: string) => Promise<boolean>
+  read: (oid: string) => Promise<Uint8Array | null>
+  stream: (oid: string) => ReadableStream<Uint8Array> | NodeJS.ReadableStream | null
+  write: (bytes: Uint8Array, expected: { oid: string, size?: number }) => Promise<WriteResult>
+  remove: (oid: string) => Promise<boolean>
+}
+
+/**
  * A store rooted at a directory.
  *
  * The root is created on demand rather than in the constructor: a server that

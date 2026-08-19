@@ -24,7 +24,7 @@
  */
 
 import type { Actor, LockStore } from './locks'
-import type { ObjectStore } from './storage'
+import type { ObjectStoreLike } from './storage'
 import { LFS_CONTENT_TYPE, negotiateTransfer, parseBatchRequest, planBatch } from './batch'
 import { createLock, listLocks, releaseLock, verifyLocks } from './locks'
 import { normalizeOid } from './oid'
@@ -39,7 +39,7 @@ export interface Authorized {
 }
 
 export interface ServerOptions {
-  objects: ObjectStore
+  objects: ObjectStoreLike
   locks?: LockStore
   /**
    * The absolute URL this API is rooted at, with no trailing slash - it is
@@ -170,7 +170,28 @@ export async function handleRequest(request: Request, options: ServerOptions): P
       if (request.method === 'HEAD')
         return new Response(null, { headers })
 
-      return new Response(Bun.file(options.objects.pathFor(oid)).stream(), { headers })
+      /*
+       * The store's own stream, never a path this package opens itself.
+       *
+       * Opening `pathFor(oid)` here was the one thing stopping a host from
+       * substituting its own store: every other operation went through the
+       * interface, and then the download route reached past it to the
+       * filesystem - so an S3-backed or forge-managed store type-checked,
+       * satisfied every other route, and 404'd on the bytes.
+       */
+      const body = options.objects.stream(oid)
+
+      if (body)
+        return new Response(body as ReadableStream, { headers })
+
+      // A store that streams nothing may still read. Buffering is the worse
+      // option for a large object, which is why it is the fallback.
+      const bytes = await options.objects.read(oid)
+
+      if (!bytes)
+        return lfsError(404, 'Object does not exist')
+
+      return new Response(bytes as unknown as BodyInit, { headers })
     }
 
     if (request.method === 'PUT') {
