@@ -138,7 +138,9 @@ export async function handleRequest(request: Request, options: ServerOptions): P
     return lfsJson(planBatch(batch, {
       endpoint: options.endpoint,
       state: oid => state.get(oid) ?? { exists: false },
-      authenticated: Boolean(access.actor),
+      // Batch authentication does not authenticate the action URL. Let the
+      // client find credentials for it rather than claiming it is pre-signed.
+      // https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
       maxBytes: options.maxBytes,
       expiresIn: options.expiresIn,
     }))
@@ -191,7 +193,7 @@ export async function handleRequest(request: Request, options: ServerOptions): P
       if (!bytes)
         return lfsError(404, 'Object does not exist')
 
-      return new Response(bytes as unknown as BodyInit, { headers })
+      return new Response(new Uint8Array(bytes), { headers })
     }
 
     if (request.method === 'PUT') {

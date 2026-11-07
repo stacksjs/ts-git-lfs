@@ -92,7 +92,7 @@ export interface BatchPlanOptions {
   /** Added to every action, for a server that hands out short-lived tokens. */
   header?: Record<string, string>
   expiresIn?: number
-  /** Set when the request arrived already authenticated, so the client stops asking. */
+  /** Action URLs already carry authorization (headers or signed URLs), independent of batch authentication. */
   authenticated?: boolean
   /** Refuse an upload over this many bytes. */
   maxBytes?: number

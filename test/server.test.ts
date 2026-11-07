@@ -1,3 +1,4 @@
+import type { BatchResponse } from '../src/batch'
 import type { ServerOptions } from '../src/server'
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
@@ -304,8 +305,8 @@ describe('a store that is not a filesystem', () => {
       { ...options, objects },
     )
 
-    expect(answer.status).toBe(200)
-    expect(await answer.text()).toBe('bytes that live in no file')
+    expect(answer?.status).toBe(200)
+    expect(await answer!.text()).toBe('bytes that live in no file')
   })
 
   it('still 404s for an object it does not hold', async () => {
@@ -317,7 +318,7 @@ describe('a store that is not a filesystem', () => {
       { ...options, objects },
     )
 
-    expect(answer.status).toBe(404)
+    expect(answer?.status).toBe(404)
   })
 
   it('takes an upload and serves it back', async () => {
@@ -330,13 +331,22 @@ describe('a store that is not a filesystem', () => {
       { ...options, objects },
     )
 
-    expect(uploaded.status).toBe(200)
+    expect(uploaded?.status).toBe(200)
 
     const served = await handleRequest(
       new Request(`${ENDPOINT}/objects/${oid}`),
       { ...options, objects },
     )
 
-    expect(await served.text()).toBe('uploaded to memory')
+    expect(await served!.text()).toBe('uploaded to memory')
   })
+})
+
+
+it('an authenticated batch leaves action credential lookup enabled', async () => {
+  const response = await handleRequest(post('/objects/batch', { operation: 'upload', objects: [{ oid: 'a'.repeat(64), size: 4 }] }), options)
+  const body = await response!.json() as BatchResponse
+  expect(body.objects[0]!.actions!.upload!.href).toBe(ENDPOINT + '/objects/' + 'a'.repeat(64))
+  expect(body.objects[0]!.authenticated).not.toBe(true)
+  expect(body.objects[0]!.actions!.upload!.header).toBeUndefined()
 })
