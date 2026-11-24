@@ -75,7 +75,7 @@
     "release:major": "bun x --bun @stacksjs/bumpx major --recursive --commit --tag --push --yes"
   },
   "devDependencies": {
-    "better-dx": "^0.2.15"
+    "better-dx": "^0.2.40"
   },
   "git-hooks": {
     "pre-commit": {
